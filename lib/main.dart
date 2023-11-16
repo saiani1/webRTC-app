@@ -67,9 +67,7 @@ class _MyHomePageState extends State<MyHomePage> {
   _createPeerConnection() async {
     Map<String, dynamic> configuration = {
       "iceServers": [
-        {
-          "url": "stun:stun.l.google.com:19302"
-        },
+        {"url": "stun:stun.l.google.com:19302"},
       ]
     };
 
@@ -82,7 +80,8 @@ class _MyHomePageState extends State<MyHomePage> {
     };
     _localStream = await _getUserMedia();
 
-    RTCPeerConnection pc = await createPeerConnection(configuration, offerSdpConstraints);
+    RTCPeerConnection pc =
+        await createPeerConnection(configuration, offerSdpConstraints);
 
     pc.addStream(_localStream);
 
@@ -93,7 +92,7 @@ class _MyHomePageState extends State<MyHomePage> {
             {
               'candidate': e.candidate.toString(),
               'sdpMid': e.sdpMid.toString(),
-              'sdpMlineIndex': e.sdpMLineIndex.toString(),
+              'sdpMlineIndex': e.sdpMLineIndex,
             },
           ),
         );
@@ -120,7 +119,8 @@ class _MyHomePageState extends State<MyHomePage> {
       }
     };
 
-    MediaStream stream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
+    MediaStream stream =
+        await navigator.mediaDevices.getUserMedia(mediaConstraints);
 
     _localRenderer.srcObject = stream;
 
@@ -128,14 +128,45 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _createOffer() async {
-    RTCSessionDescription description = await _peerConnection.createOffer({
-      'offerToReceiveVideo': 1
-    });
+    RTCSessionDescription description =
+        await _peerConnection.createOffer({'offerToReceiveVideo': 1});
     var session = parse(description.sdp!);
     print(json.encode(session));
     _offer = true;
 
     _peerConnection.setLocalDescription(description);
+  }
+
+  void _createAnswer() async {
+    RTCSessionDescription description =
+        await _peerConnection.createAnswer({'offerToReceiveVideo': 1});
+    var session = parse(description.sdp!);
+    print(json.encode(session));
+
+    _peerConnection.setLocalDescription(description);
+  }
+
+  void _setRemoteDescription() async {
+    String jsonString = sdpController.text;
+    dynamic session = await jsonDecode('$jsonString');
+    String sdp = write(session, null);
+
+    RTCSessionDescription description =
+        new RTCSessionDescription(sdp, _offer ? 'answer' : 'offer');
+
+    print(description.toMap());
+
+    await _peerConnection.setRemoteDescription(description);
+  }
+
+  void _setCandidate() async {
+    String jsonString = sdpController.text;
+    dynamic session = await jsonDecode('$jsonString');
+    print(session['candidate']);
+    dynamic candidate = new RTCIceCandidate(
+        session['candidate'], session['sdpMid'], session['sdpMlineIndex']);
+
+    await _peerConnection.addCandidate(candidate);
   }
 
   SizedBox VideoRenderers() => SizedBox(
@@ -167,12 +198,16 @@ class _MyHomePageState extends State<MyHomePage> {
         children: <Widget>[
           ElevatedButton(
             onPressed: _createOffer,
-            style: ButtonStyle(backgroundColor: MaterialStateProperty.all<Color>(Colors.amber)),
+            style: ButtonStyle(
+                backgroundColor:
+                    MaterialStateProperty.all<Color>(Colors.amber)),
             child: const Text('Offer'),
           ),
           ElevatedButton(
-            onPressed: null, // createAnswer
-            style: ButtonStyle(backgroundColor: MaterialStateProperty.all<Color>(Colors.amber)),
+            onPressed: _createAnswer,
+            style: ButtonStyle(
+                backgroundColor:
+                    MaterialStateProperty.all<Color>(Colors.amber)),
             child: const Text('Answer'),
           ),
         ],
@@ -192,13 +227,17 @@ class _MyHomePageState extends State<MyHomePage> {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: <Widget>[
           ElevatedButton(
-            onPressed: null, // _setRemoteDescription,
-            style: ButtonStyle(backgroundColor: MaterialStateProperty.all<Color>(Colors.amber)),
+            onPressed: _setRemoteDescription,
+            style: ButtonStyle(
+                backgroundColor:
+                    MaterialStateProperty.all<Color>(Colors.amber)),
             child: const Text('Set Remote Desc'),
           ),
           ElevatedButton(
-            onPressed: null, // _setCandidate,
-            style: ButtonStyle(backgroundColor: MaterialStateProperty.all<Color>(Colors.amber)),
+            onPressed: _setCandidate,
+            style: ButtonStyle(
+                backgroundColor:
+                    MaterialStateProperty.all<Color>(Colors.amber)),
             child: const Text('Set Candidate'),
           ),
         ],
